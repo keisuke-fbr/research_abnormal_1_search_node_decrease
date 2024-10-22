@@ -145,6 +145,8 @@ def search_model(initializer, X_train, error_threshold, max_epochs, early_stoppi
     best_units = None
     best_loss = float('inf')
 
+    max_units = 30
+
     # 各ユニット数に対するfinal_lossを保存する辞書
     final_losses_per_units = {}
 
@@ -155,15 +157,17 @@ def search_model(initializer, X_train, error_threshold, max_epochs, early_stoppi
 
     # 探索開始
     #units_2を固定してunits_1_3を探索する。閾値を満たさなくなったタイミングで終了
-    for units_2 in reversed(range(1, units)):
+    for units_2 in reversed(range(2, units)):
         best_model_unit_2 = None
         optimal_unit = None
         
-        for units_1_3 in reversed(range(units+1, 31)):
+        for units_1_3 in reversed(range(units+1, max_units+1)):
             flag_stop = 0
             #初期点を何回か振り分けて収束を考える
             final_losses_for_units = []  # 各ユニット数に対する複数回の初期化結果を保存するリスト
-            for init_num in range(num_initializations):  # 初期化方法を複数回試行
+             
+             # 初期化方法を複数回試行
+            for init_num in range(num_initializations):
                 initializer = initializer  # 初期化方法の設定
                 print("----------------------------------------------------------------------------------------")
                 print("----------------------------------------------------------------------------------------")
@@ -195,14 +199,16 @@ def search_model(initializer, X_train, error_threshold, max_epochs, early_stoppi
             #閾値を満たしていなけれunits2を次へ
             if flag_stop == 0:
                 print("====================================================================================")
-                print(f"最適なノード数が見つかりました: units_1_3={optimal_unit}, units_2={units_2}")
+                print(f"unit_2が{units_2}での最適なノード数が見つかりました: units_1_3={optimal_unit}, units_2={units_2}")
                 print("====================================================================================")
                 optimal_models[(optimal_unit,units_2)] = best_model_unit_2
                 optimal_units[units_2] = optimal_unit
 
                 #units_1_3が３０の時点で閾値を下回らなければ直ちに中止し、以降の探索をやめる
-                if flag_stop == 0 and units_1_3 == 30:
-                    print("units_1_3が30でも閾値を下回らなかったので処理を終えます")  
+                if units_1_3 == max_units:
+                    print("units_1_3が30でも閾値を下回らなかったので処理を終えます") 
+                    #30で下回らなかった場合、units数にNoneが入るため大きい数値を再代入する
+                    optimal_units[units_2] = 10000
                     flag_stop = 2  
                     break
                 break
@@ -213,7 +219,7 @@ def search_model(initializer, X_train, error_threshold, max_epochs, early_stoppi
 
         #units2の停止条件
         #どんなに表現力を上げても（30にしても）閾値を下回らないノードの発見、またはモデルの探索が最後まで行ったら終わり
-        if flag_stop == 2 or units_2 == 1:
+        if flag_stop == 2 or units_2 == 2:
             break
             
     #今、各unit_1_3の組み合わせにおいて最適なunit2の値が対応している。その中で最もノード数が小さいものをベストモデルとする。
@@ -222,12 +228,14 @@ def search_model(initializer, X_train, error_threshold, max_epochs, early_stoppi
     best_unit_1_3 = None
     best_unit_2 = None
 
+
     for unit_2, unit_1_3 in optimal_units.items():
         total_units = unit_1_3*2 + unit_2
-    if total_units < min_total_units:
-        min_total_units = total_units
-        best_unit_1_3 = unit_1_3
-        best_unit_2 = unit_2
+        
+        if total_units < min_total_units:
+            min_total_units = total_units
+            best_unit_1_3 = unit_1_3
+            best_unit_2 = unit_2
 
     print(f"最小ユニットの組み合わせ: units_1_3={best_unit_1_3}, units_2={best_unit_2}, 合計ユニット数={min_total_units}")
     best_model = optimal_models[(best_unit_1_3, best_unit_2)]
